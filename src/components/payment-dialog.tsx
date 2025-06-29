@@ -21,7 +21,7 @@ export function PaymentDialog({ isOpen, onOpenChange, totalAmount, orderItems, t
   const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
-  const { clearOrder } = useOrders();
+  const { completeOrder } = useOrders();
 
   const handlePayment = async (method: string) => {
     setIsProcessing(true);
@@ -37,7 +37,8 @@ export function PaymentDialog({ isOpen, onOpenChange, totalAmount, orderItems, t
       description: `Paid $${totalAmount.toFixed(2)} for table ${tableId} via ${method}. Sales data synced with ERPNext.`,
     });
     
-    clearOrder(tableId);
+    completeOrder(tableId, orderItems, totalAmount, method);
+    
     // Redirect to home page
     router.push('/');
   };

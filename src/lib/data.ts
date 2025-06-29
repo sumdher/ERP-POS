@@ -25,6 +25,16 @@ export interface OrderItem extends MenuItem {
   status: 'new' | 'sent';
 }
 
+export interface CompletedOrder {
+  id: string;
+  tableId: string;
+  items: OrderItem[];
+  total: number;
+  paymentMethod: string;
+  completedAt: Date;
+}
+
+
 export const tables: Table[] = [
   { id: 1, status: 'occupied' },
   { id: 2, status: 'available' },

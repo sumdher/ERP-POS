@@ -1,21 +1,23 @@
 'use client';
 
 import { createContext, useContext, useState, ReactNode, useCallback } from 'react';
-import type { OrderItem, MenuItem } from '@/lib/data';
+import type { OrderItem, MenuItem, CompletedOrder } from '@/lib/data';
 
 interface OrderContextType {
   orders: Record<string, OrderItem[]>;
+  completedOrders: CompletedOrder[];
   getOrderByTableId: (tableId: string) => OrderItem[];
   addItemToOrder: (tableId: string, item: MenuItem) => void;
   updateOrderItemQuantity: (tableId: string, orderItemId: string, newQuantity: number) => void;
   updateOrderStatus: (tableId: string, itemIds: string[], status: 'sent') => void;
-  clearOrder: (tableId: string) => void;
+  completeOrder: (tableId: string, orderItems: OrderItem[], totalAmount: number, paymentMethod: string) => void;
 }
 
 const OrderContext = createContext<OrderContextType | undefined>(undefined);
 
 export function OrderProvider({ children }: { children: ReactNode }) {
   const [orders, setOrders] = useState<Record<string, OrderItem[]>>({});
+  const [completedOrders, setCompletedOrders] = useState<CompletedOrder[]>([]);
 
   const getOrderByTableId = useCallback((tableId: string) => {
     return orders[tableId] || [];
@@ -69,16 +71,28 @@ export function OrderProvider({ children }: { children: ReactNode }) {
       });
   };
   
-  const clearOrder = (tableId: string) => {
-      setOrders(prevOrders => {
-          const newOrders = {...prevOrders};
-          delete newOrders[tableId];
-          return newOrders;
-      });
+  const completeOrder = (tableId: string, orderItems: OrderItem[], totalAmount: number, paymentMethod: string) => {
+    const newCompletedOrder: CompletedOrder = {
+      id: `sale_${Date.now()}`,
+      tableId,
+      items: orderItems,
+      total: totalAmount,
+      paymentMethod,
+      completedAt: new Date(),
+    };
+
+    setCompletedOrders(prev => [newCompletedOrder, ...prev]);
+
+    setOrders(prevOrders => {
+        const newOrders = {...prevOrders};
+        delete newOrders[tableId];
+        return newOrders;
+    });
   };
 
+
   return (
-    <OrderContext.Provider value={{ orders, getOrderByTableId, addItemToOrder, updateOrderItemQuantity, updateOrderStatus, clearOrder }}>
+    <OrderContext.Provider value={{ orders, completedOrders, getOrderByTableId, addItemToOrder, updateOrderItemQuantity, updateOrderStatus, completeOrder }}>
       {children}
     </OrderContext.Provider>
   );

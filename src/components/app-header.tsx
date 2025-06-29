@@ -1,14 +1,15 @@
 import Link from 'next/link';
-import { Utensils, ChevronLeft } from 'lucide-react';
+import { Utensils, ChevronLeft, LayoutDashboard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 interface AppHeaderProps {
   backHref?: string;
   className?: string;
+  showDashboardButton?: boolean;
 }
 
-export function AppHeader({ backHref, className }: AppHeaderProps) {
+export function AppHeader({ backHref, className, showDashboardButton = false }: AppHeaderProps) {
   return (
     <header className={cn("flex items-center justify-between p-4 border-b bg-card", className)}>
       <div className="flex items-center gap-3">
@@ -25,6 +26,16 @@ export function AppHeader({ backHref, className }: AppHeaderProps) {
         <h1 className="text-xl md:text-2xl font-headline text-foreground">
           Restaurant ERP<span className="text-primary font-bold">+</span>POS
         </h1>
+      </div>
+      <div className="flex items-center gap-2">
+        {showDashboardButton && (
+          <Button variant="outline" asChild>
+            <Link href="/dashboard">
+              <LayoutDashboard className="mr-2 h-4 w-4" />
+              Dashboard
+            </Link>
+          </Button>
+        )}
       </div>
     </header>
   );
