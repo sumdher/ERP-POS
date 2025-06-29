@@ -38,8 +38,11 @@ export async function createSalesInvoice(orderDetails: {
 
   console.log(`[ERPNext] Found credentials. Connecting to: ${erpNextUrl}`);
 
+  // CRITICAL: For submitted invoices (docstatus: 1), ERPNext requires an 'item_code'
+  // that exists in its Item database. 'item_name' is not sufficient.
+  // The item.name from our POS must exactly match an Item Code in ERPNext.
   const itemsPayload = orderItems.map(item => ({
-    item_name: item.name,
+    item_code: item.name, // Using item_code as required by the API.
     qty: item.quantity,
     rate: item.price,
   }));
@@ -47,7 +50,8 @@ export async function createSalesInvoice(orderDetails: {
   const invoicePayload = {
     customer: 'Walk-in Customer',
     currency: 'USD',
-    payment_terms_template: 'In Advance', // This is the required fix.
+    // This template must exist in ERPNext. 'In Advance' is a standard default.
+    payment_terms_template: 'In Advance',
     set_posting_time: 1,
     docstatus: 1, // 1 = Submitted document
     items: itemsPayload,
@@ -79,7 +83,11 @@ export async function createSalesInvoice(orderDetails: {
     if (!response.ok) {
       console.error('[ERPNext] API Error Response:', JSON.stringify(result, null, 2));
       const detailedError = result?.exception || result?.message || `API Error: ${response.statusText}`;
-      return { success: false, message: `Failed to create invoice in ERPNext. Reason: ${detailedError}` };
+      // Providing a more helpful error message to the user.
+      const userMessage = detailedError.includes("payment_terms")
+        ? "ERPNext error. This is likely caused by a missing 'Item Code'. Please ensure all items in this order exist as Item Codes in your ERPNext database."
+        : `Failed to create invoice in ERPNext. Reason: ${detailedError}`;
+      return { success: false, message: userMessage };
     }
 
     console.log('[ERPNext] SUCCESS: Created Sales Invoice:', result.data.name);
