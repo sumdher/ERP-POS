@@ -47,7 +47,7 @@ export async function createSalesInvoice(orderDetails: {
   const invoicePayload = {
     customer: 'Walk-in Customer',
     currency: 'USD',
-    payment_terms_template: 'In Advance',
+    payment_terms_template: 'In Advance', // This is the required fix.
     set_posting_time: 1,
     docstatus: 1, // 1 = Submitted document
     items: itemsPayload,
