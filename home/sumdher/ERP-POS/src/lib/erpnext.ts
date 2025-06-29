@@ -111,7 +111,7 @@ export async function getSalesInvoices(): Promise<SalesInvoice[]> {
   const apiSecret = process.env.ERPNEXT_API_SECRET;
   
   if (!erpNextUrl || !apiKey || !apiSecret) {
-    console.log('[ERPNext] No credentials found for getSalesInvoices. Returning empty array.');
+    console.log('[ERPNext] No credentials found for getSalesInvoices. Returning empty array. Please check your .env.local file.');
     return [];
   }
   
