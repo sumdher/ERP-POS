@@ -6,7 +6,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { CreditCard, Landmark, Wallet, Loader2 } from 'lucide-react';
-import type { OrderItem } from './order-interface';
+import type { OrderItem } from '@/lib/data';
+import { useOrders } from '@/context/order-context';
 
 interface PaymentDialogProps {
   isOpen: boolean;
@@ -20,6 +21,7 @@ export function PaymentDialog({ isOpen, onOpenChange, totalAmount, orderItems, t
   const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
+  const { clearOrder } = useOrders();
 
   const handlePayment = async (method: string) => {
     setIsProcessing(true);
@@ -34,7 +36,8 @@ export function PaymentDialog({ isOpen, onOpenChange, totalAmount, orderItems, t
       title: 'Payment Successful!',
       description: `Paid $${totalAmount.toFixed(2)} for table ${tableId} via ${method}. Sales data synced with ERPNext.`,
     });
-
+    
+    clearOrder(tableId);
     // Redirect to home page
     router.push('/');
   };

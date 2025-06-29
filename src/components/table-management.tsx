@@ -1,10 +1,31 @@
 'use client';
 
-import { tables } from '@/lib/data';
+import { useMemo } from 'react';
+import { tables as staticTables, type Table } from '@/lib/data';
+import { useOrders } from '@/context/order-context';
 import { AppHeader } from './app-header';
 import { TableCard } from './table-card';
 
 export function TableManagement() {
+  const { orders } = useOrders();
+
+  const tables = useMemo(() => {
+    return staticTables.map(table => {
+      const orderItems = orders[table.id] || [];
+      let status: Table['status'] = 'available';
+
+      if (orderItems.length > 0) {
+        const hasNewItems = orderItems.some(item => item.status === 'new');
+        if (hasNewItems) {
+          status = 'occupied';
+        } else {
+          status = 'billing';
+        }
+      }
+      return { ...table, status };
+    });
+  }, [orders]);
+
   return (
     <div className="flex flex-col h-screen bg-background">
       <AppHeader />

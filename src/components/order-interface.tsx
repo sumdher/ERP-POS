@@ -15,9 +15,17 @@ import { useToast } from '@/hooks/use-toast';
 import { PaymentDialog } from './payment-dialog';
 import { cn } from '@/lib/utils';
 import { saveKotToFile } from '@/lib/actions';
+import { useOrders } from '@/context/order-context';
 
 export function OrderInterface({ tableId }: { tableId: string }) {
-  const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
+  const { 
+    getOrderByTableId, 
+    addItemToOrder, 
+    updateOrderItemQuantity,
+    updateOrderStatus
+  } = useOrders();
+  const orderItems = getOrderByTableId(tableId);
+
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const [isSending, setIsSending] = useState(false);
@@ -31,35 +39,19 @@ export function OrderInterface({ tableId }: { tableId: string }) {
   }, []);
 
   const handleAddItem = (item: MenuItem) => {
-    setOrderItems((prevItems) => {
-      const existingItem = prevItems.find((i) => i.id === item.id && i.status === 'new');
-      if (existingItem) {
-        return prevItems.map((i) =>
-          i.orderItemId === existingItem.orderItemId ? { ...i, quantity: i.quantity + 1 } : i
-        );
-      }
-      const newOrderItem: OrderItem = {
-        ...item,
-        orderItemId: `order_${Date.now()}_${Math.random()}`,
-        quantity: 1,
-        status: 'new',
-      };
-      return [...prevItems, newOrderItem];
-    });
+    addItemToOrder(tableId, item);
   };
 
   const handleUpdateQuantity = (orderItemId: string, newQuantity: number) => {
     if (newQuantity <= 0) {
-      setOrderItems((prev) => prev.filter((i) => i.orderItemId !== orderItemId));
+      updateOrderItemQuantity(tableId, orderItemId, 0);
       setSelectedItemIds(prev => {
         const newSet = new Set(prev);
         newSet.delete(orderItemId);
         return newSet;
       });
     } else {
-      setOrderItems((prev) =>
-        prev.map((i) => (i.orderItemId === orderItemId ? { ...i, quantity: newQuantity } : i))
-      );
+      updateOrderItemQuantity(tableId, orderItemId, newQuantity);
     }
   };
 
@@ -93,7 +85,8 @@ export function OrderInterface({ tableId }: { tableId: string }) {
   }, [orderItems]);
 
   const handleSendToKitchen = async () => {
-    const itemsToSend = orderItems.filter((item) => selectedItemIds.has(item.orderItemId));
+    const itemsToSendIds = Array.from(selectedItemIds);
+    const itemsToSend = orderItems.filter((item) => itemsToSendIds.includes(item.orderItemId));
 
     if (itemsToSend.length === 0) {
       toast({
@@ -113,11 +106,7 @@ export function OrderInterface({ tableId }: { tableId: string }) {
           title: 'Order Sent!',
           description: `Selected items for table ${tableId} sent to the kitchen.`,
         });
-        setOrderItems((prev) =>
-          prev.map((item) =>
-            selectedItemIds.has(item.orderItemId) ? { ...item, status: 'sent' } : item
-          )
-        );
+        updateOrderStatus(tableId, itemsToSendIds, 'sent');
         setSelectedItemIds(new Set());
       } else {
         toast({
@@ -138,6 +127,16 @@ export function OrderInterface({ tableId }: { tableId: string }) {
   };
   
   const areAllNewItemsSelected = newItems.length > 0 && selectedItemIds.size === newItems.length;
+
+  const categoryOrder = useMemo(() => menuCategories.map(c => c.id), []);
+
+  const sortedOrderItems = useMemo(() => {
+    return [...orderItems].sort((a, b) => {
+      const categoryAIndex = categoryOrder.indexOf(a.categoryId);
+      const categoryBIndex = categoryOrder.indexOf(b.categoryId);
+      return categoryAIndex - categoryBIndex;
+    });
+  }, [orderItems, categoryOrder]);
 
   return (
     <div className="flex flex-col h-screen bg-background">
@@ -211,7 +210,7 @@ export function OrderInterface({ tableId }: { tableId: string }) {
                 <p className="text-muted-foreground text-center py-10">No items added yet.</p>
               ) : (
                 <ul className="space-y-4">
-                  {orderItems.map((item) => (
+                  {sortedOrderItems.map((item) => (
                     <li key={item.orderItemId} className={cn("flex items-start gap-3", item.status === 'sent' && "opacity-60")}>
                       <div className="flex-shrink-0 pt-1">
                         {item.status === 'new' ? (
