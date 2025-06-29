@@ -27,12 +27,12 @@ export async function createSalesInvoice(orderDetails: {
   const apiSecret = process.env.ERPNEXT_API_SECRET;
 
   if (!erpNextUrl || !apiKey || !apiSecret) {
-    console.error('ERPNext environment variables are not set.');
-    // In a real scenario, you might want to proceed without syncing
-    // or return a more specific error. For this prototype, we'll
-    // simulate success if credentials are not provided.
-    console.log('Simulating successful ERPNext sync as no credentials were provided.');
-    return { success: true, message: 'Simulated successful sync to ERPNext.' };
+    const errorMessage = "ERPNext connection details not found in .env.local. Please check the file and restart the server.";
+    console.error(errorMessage);
+    return { 
+      success: false, 
+      message: errorMessage
+    };
   }
 
   // Use `item_name` instead of `item_code`. This allows creating invoices
@@ -77,14 +77,16 @@ export async function createSalesInvoice(orderDetails: {
 
     if (!response.ok) {
       console.error('ERPNext API Error:', result);
-      return { success: false, message: result?.exception || `API Error: ${response.statusText}` };
+      // The `result.exception` often contains the most useful error message from ERPNext
+      const detailedError = result?.exception || `API Error: ${response.statusText}`;
+      return { success: false, message: `Failed to create invoice in ERPNext. Reason: ${detailedError}` };
     }
 
     console.log('Successfully created Sales Invoice:', result.data.name);
     return { success: true, message: `Successfully created Sales Invoice ${result.data.name}` };
   } catch (error) {
     console.error('Failed to connect to ERPNext:', error);
-    return { success: false, message: 'Failed to connect to ERPNext API.' };
+    return { success: false, message: 'Failed to connect to ERPNext API. Is the server running and the URL correct?' };
   }
 }
 
