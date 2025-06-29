@@ -2,6 +2,13 @@
 // Do not import it into client-side components.
 import type { OrderItem } from './data';
 
+export interface SalesInvoice {
+  name: string;
+  customer: string;
+  posting_date: string;
+  grand_total: number;
+}
+
 /**
  * Creates a Sales Invoice in ERPNext.
  * 
@@ -37,7 +44,9 @@ export async function createSalesInvoice(orderDetails: {
   }));
 
   const invoicePayload = {
-    customer: 'Walk-in Customer', // Assuming a default customer
+    // Default to 'Walk-in Customer' for POS sales
+    // This customer must exist in ERPNext
+    customer: 'Walk-in Customer',
     currency: 'USD',
     set_posting_time: 1, // Use current date and time
     docstatus: 1, // 1 = Submitted document
@@ -72,5 +81,48 @@ export async function createSalesInvoice(orderDetails: {
   } catch (error) {
     console.error('Failed to connect to ERPNext:', error);
     return { success: false, message: 'Failed to connect to ERPNext API.' };
+  }
+}
+
+
+/**
+ * Fetches recent Sales Invoices from ERPNext.
+ * 
+ * @returns An array of sales invoices.
+ */
+export async function getSalesInvoices(): Promise<SalesInvoice[]> {
+  const erpNextUrl = process.env.ERPNEXT_URL;
+  const apiKey = process.env.ERPNEXT_API_KEY;
+  const apiSecret = process.env.ERPNEXT_API_SECRET;
+  
+  if (!erpNextUrl || !apiKey || !apiSecret) {
+    console.log('Simulating ERPNext fetch as no credentials were provided.');
+    return [];
+  }
+  
+  const fields = `["name", "customer", "posting_date", "grand_total"]`;
+  const orderBy = `posting_date desc`;
+  const url = `${erpNextUrl}/api/resource/Sales Invoice?fields=${fields}&order_by=${orderBy}&limit=20`;
+
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Authorization': `token ${apiKey}:${apiSecret}`,
+      },
+    });
+
+    if (!response.ok) {
+      const errorResult = await response.json();
+      console.error('ERPNext API Error fetching invoices:', errorResult);
+      throw new Error(errorResult?.exception || `API Error: ${response.statusText}`);
+    }
+
+    const result = await response.json();
+    return result.data as SalesInvoice[];
+  } catch (error) {
+    console.error('Failed to connect to ERPNext to get sales invoices:', error);
+    // Return empty array on failure so the dashboard can still render.
+    return [];
   }
 }

@@ -2,12 +2,13 @@
       KITCHEN ORDER TICKET
 ================================
 
-Table: 2
-Date: 6/29/2025, 3:59:32 PM
+Table: 1
+Date: 6/29/2025, 4:30:28 PM
 
 --------------------------------
 
--- DESSERTS --
- 1   | Cheesecake
+-- APPETIZERS --
+ 1   | Bruschetta
+ 1   | Caprese Salad
 
 --------------------------------
