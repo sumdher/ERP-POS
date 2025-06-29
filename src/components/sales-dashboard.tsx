@@ -4,14 +4,14 @@ import { useState, useEffect, useMemo } from 'react';
 import { AppHeader } from './app-header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Bar, BarChart, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { getSalesData, type SalesDataResponse } from '@/ai/flows/get-sales-data-flow';
+import { getSalesDataFromERP } from '@/lib/actions';
+import type { SalesInvoice } from '@/lib/erpnext';
 import { Skeleton } from './ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { Terminal } from 'lucide-react';
 
 export function SalesDashboard() {
-  const [salesData, setSalesData] = useState<SalesDataResponse>([]);
+  const [salesData, setSalesData] = useState<SalesInvoice[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -20,7 +20,7 @@ export function SalesDashboard() {
       setIsLoading(true);
       setError(null);
       try {
-        const data = await getSalesData();
+        const data = await getSalesDataFromERP();
         setSalesData(data);
       } catch (err) {
         console.error("Failed to fetch sales data:", err);

@@ -3,7 +3,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { menuCategories, type OrderItem } from '@/lib/data';
-import { createSalesInvoice } from './erpnext';
+import { createSalesInvoice, getSalesInvoices } from './erpnext';
 
 const KOT_DIR = path.join(process.cwd(), 'kots');
 
@@ -77,4 +77,10 @@ export async function processPaymentAndCreateInvoice(orderDetails: {
   console.log('Processing payment and creating invoice...');
   const result = await createSalesInvoice(orderDetails);
   return result;
+}
+
+export async function getSalesDataFromERP() {
+  console.log('Fetching sales data from ERPNext via server action...');
+  const invoices = await getSalesInvoices();
+  return invoices;
 }
