@@ -50,8 +50,9 @@ export async function createSalesInvoice(orderDetails: {
   const invoicePayload = {
     customer: 'Walk-in Customer',
     currency: 'USD',
+    // THIS IS THE CRITICAL FIX: Explicitly set the payment terms.
     // This template must exist in ERPNext. 'In Advance' is a standard default.
-    payment_terms_template: 'In Advance',
+    payment_terms_template: 'In Advance', 
     set_posting_time: 1,
     docstatus: 1, // 1 = Submitted document
     items: itemsPayload,
@@ -83,10 +84,12 @@ export async function createSalesInvoice(orderDetails: {
     if (!response.ok) {
       console.error('[ERPNext] API Error Response:', JSON.stringify(result, null, 2));
       const detailedError = result?.exception || result?.message || `API Error: ${response.statusText}`;
-      // Providing a more helpful error message to the user.
-      const userMessage = detailedError.includes("payment_terms")
+      
+      // Providing a more helpful error message to the user for common issues.
+      const userMessage = detailedError.includes("Item Code") || detailedError.includes("payment_terms")
         ? "ERPNext error. This is likely caused by a missing 'Item Code'. Please ensure all items in this order exist as Item Codes in your ERPNext database."
         : `Failed to create invoice in ERPNext. Reason: ${detailedError}`;
+      
       return { success: false, message: userMessage };
     }
 
