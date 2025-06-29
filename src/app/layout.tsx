@@ -26,16 +26,6 @@ export default function RootLayout({
           <Toaster />
         </OrderProvider>
       </body>
-    </html> POST /order/2 200 in 741ms
-[Error: Failed to find Server Action "409aa4b71da8ea66853fe6780869e84f0fa162b895". This request might be from an older or newer deployment.
-Read more: https://nextjs.org/docs/messages/failed-to-find-server-action]
-Error: Route "/order/[tableId]" used `params.tableId`. `params` should be awaited before using its properties. Learn more: https://nextjs.org/docs/messages/sync-dynamic-apis
-    at OrderPage (src/app/order/[tableId]/page.tsx:4:41)
-  2 |
-  3 | export default function OrderPage({ params }: { params: { tableId: string } }) {
-> 4 |   return <OrderInterface tableId={params.tableId} />;
-    |                                         ^
-  5 | }
-  6 |
-  );
+    </html>   
+    );
 }
