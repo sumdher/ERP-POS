@@ -2,25 +2,23 @@
 
 import { useState, useMemo } from 'react';
 import Image from 'next/image';
-import { menuCategories, menuItems, type MenuItem } from '@/lib/data';
+import { menuCategories, menuItems, type MenuItem, type OrderItem } from '@/lib/data';
 import { AppHeader } from './app-header';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { PlusCircle, MinusCircle, Trash2, Printer, CreditCard } from 'lucide-react';
+import { PlusCircle, MinusCircle, Trash2, Printer, CreditCard, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { PaymentDialog } from './payment-dialog';
 import { cn } from '@/lib/utils';
-
-export interface OrderItem extends MenuItem {
-  quantity: number;
-}
+import { saveKotToFile } from '@/lib/actions';
 
 export function OrderInterface({ tableId }: { tableId: string }) {
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
+  const [isSending, setIsSending] = useState(false);
   const { toast } = useToast();
 
   const handleAddItem = (item: MenuItem) => {
@@ -52,7 +50,7 @@ export function OrderInterface({ tableId }: { tableId: string }) {
     return { subtotal, tax, total };
   }, [orderItems]);
 
-  const handleSendToKitchen = () => {
+  const handleSendToKitchen = async () => {
     if (orderItems.length === 0) {
       toast({
         variant: 'destructive',
@@ -61,10 +59,32 @@ export function OrderInterface({ tableId }: { tableId: string }) {
       });
       return;
     }
-    toast({
-      title: 'Order Sent!',
-      description: `Order for table ${tableId} has been sent to the kitchen.`,
-    });
+
+    setIsSending(true);
+    try {
+      const result = await saveKotToFile({ tableId, orderItems });
+
+      if (result.success) {
+        toast({
+          title: 'Order Sent!',
+          description: `Order for table ${tableId} has been sent to the kitchen.`,
+        });
+      } else {
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: result.message || 'Failed to send order to the kitchen.',
+        });
+      }
+    } catch (error) {
+       toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'An unexpected error occurred.',
+      });
+    } finally {
+      setIsSending(false);
+    }
   };
 
   return (
@@ -169,8 +189,8 @@ export function OrderInterface({ tableId }: { tableId: string }) {
                 <span>${total.toFixed(2)}</span>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <Button size="lg" variant="outline" onClick={handleSendToKitchen}>
-                  <Printer className="mr-2 h-4 w-4" />
+                <Button size="lg" variant="outline" onClick={handleSendToKitchen} disabled={isSending}>
+                  {isSending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Printer className="mr-2 h-4 w-4" />}
                   To Kitchen
                 </Button>
                 <Button size="lg" className="bg-accent text-accent-foreground hover:bg-accent/90" onClick={() => setIsPaymentDialogOpen(true)}>

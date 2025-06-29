@@ -19,6 +19,10 @@ export interface MenuItem {
   hint: string;
 }
 
+export interface OrderItem extends MenuItem {
+  quantity: number;
+}
+
 export const tables: Table[] = [
   { id: 1, status: 'occupied' },
   { id: 2, status: 'available' },
