@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { Checkbox } from '@/components/ui/checkbox';
 import { PlusCircle, MinusCircle, Trash2, Printer, CreditCard, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { PaymentDialog } from './payment-dialog';
@@ -17,29 +18,70 @@ import { saveKotToFile } from '@/lib/actions';
 
 export function OrderInterface({ tableId }: { tableId: string }) {
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
+  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const { toast } = useToast();
 
+  const categoryMap = useMemo(() => {
+    return menuCategories.reduce((acc, category) => {
+      acc[category.id] = category.name;
+      return acc;
+    }, {} as Record<string, string>);
+  }, []);
+
   const handleAddItem = (item: MenuItem) => {
     setOrderItems((prevItems) => {
-      const existingItem = prevItems.find((i) => i.id === item.id);
+      const existingItem = prevItems.find((i) => i.id === item.id && i.status === 'new');
       if (existingItem) {
         return prevItems.map((i) =>
-          i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i
+          i.orderItemId === existingItem.orderItemId ? { ...i, quantity: i.quantity + 1 } : i
         );
       }
-      return [...prevItems, { ...item, quantity: 1 }];
+      const newOrderItem: OrderItem = {
+        ...item,
+        orderItemId: `order_${Date.now()}_${Math.random()}`,
+        quantity: 1,
+        status: 'new',
+      };
+      return [...prevItems, newOrderItem];
     });
   };
 
-  const handleUpdateQuantity = (itemId: number, newQuantity: number) => {
+  const handleUpdateQuantity = (orderItemId: string, newQuantity: number) => {
     if (newQuantity <= 0) {
-      setOrderItems((prev) => prev.filter((i) => i.id !== itemId));
+      setOrderItems((prev) => prev.filter((i) => i.orderItemId !== orderItemId));
+      setSelectedItemIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(orderItemId);
+        return newSet;
+      });
     } else {
       setOrderItems((prev) =>
-        prev.map((i) => (i.id === itemId ? { ...i, quantity: newQuantity } : i))
+        prev.map((i) => (i.orderItemId === orderItemId ? { ...i, quantity: newQuantity } : i))
       );
+    }
+  };
+
+  const handleToggleSelectItem = (orderItemId: string) => {
+    setSelectedItemIds((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(orderItemId)) {
+        newSet.delete(orderItemId);
+      } else {
+        newSet.add(orderItemId);
+      }
+      return newSet;
+    });
+  };
+
+  const newItems = useMemo(() => orderItems.filter((item) => item.status === 'new'), [orderItems]);
+
+  const handleToggleSelectAll = () => {
+    if (newItems.length > 0 && selectedItemIds.size === newItems.length) {
+      setSelectedItemIds(new Set());
+    } else {
+      setSelectedItemIds(new Set(newItems.map((item) => item.orderItemId)));
     }
   };
 
@@ -51,24 +93,32 @@ export function OrderInterface({ tableId }: { tableId: string }) {
   }, [orderItems]);
 
   const handleSendToKitchen = async () => {
-    if (orderItems.length === 0) {
+    const itemsToSend = orderItems.filter((item) => selectedItemIds.has(item.orderItemId));
+
+    if (itemsToSend.length === 0) {
       toast({
         variant: 'destructive',
-        title: 'Empty Order',
-        description: 'Please add items to the order before sending to the kitchen.',
+        title: 'No Items Selected',
+        description: 'Please select items to send to the kitchen.',
       });
       return;
     }
 
     setIsSending(true);
     try {
-      const result = await saveKotToFile({ tableId, orderItems });
+      const result = await saveKotToFile({ tableId, orderItems: itemsToSend });
 
       if (result.success) {
         toast({
           title: 'Order Sent!',
-          description: `Order for table ${tableId} has been sent to the kitchen.`,
+          description: `Selected items for table ${tableId} sent to the kitchen.`,
         });
+        setOrderItems((prev) =>
+          prev.map((item) =>
+            selectedItemIds.has(item.orderItemId) ? { ...item, status: 'sent' } : item
+          )
+        );
+        setSelectedItemIds(new Set());
       } else {
         toast({
           variant: 'destructive',
@@ -86,6 +136,8 @@ export function OrderInterface({ tableId }: { tableId: string }) {
       setIsSending(false);
     }
   };
+  
+  const areAllNewItemsSelected = newItems.length > 0 && selectedItemIds.size === newItems.length;
 
   return (
     <div className="flex flex-col h-screen bg-background">
@@ -137,8 +189,21 @@ export function OrderInterface({ tableId }: { tableId: string }) {
 
         {/* Order Summary Section */}
         <aside className="md:col-span-1 bg-card border-l flex flex-col">
-          <div className="p-4 border-b">
+          <div className="flex items-center justify-between p-4 border-b">
             <h2 className="text-2xl font-headline">Order for Table {tableId}</h2>
+            {newItems.length > 0 && (
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="select-all"
+                  checked={areAllNewItemsSelected}
+                  onCheckedChange={handleToggleSelectAll}
+                  aria-label="Select all new items"
+                />
+                <label htmlFor="select-all" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                  Select New
+                </label>
+              </div>
+            )}
           </div>
           <ScrollArea className="flex-1">
             <div className="p-4">
@@ -147,22 +212,35 @@ export function OrderInterface({ tableId }: { tableId: string }) {
               ) : (
                 <ul className="space-y-4">
                   {orderItems.map((item) => (
-                    <li key={item.id} className="flex items-center gap-4">
+                    <li key={item.orderItemId} className={cn("flex items-start gap-3", item.status === 'sent' && "opacity-60")}>
+                      <div className="flex-shrink-0 pt-1">
+                        {item.status === 'new' ? (
+                          <Checkbox
+                            id={`select-${item.orderItemId}`}
+                            checked={selectedItemIds.has(item.orderItemId)}
+                            onCheckedChange={() => handleToggleSelectItem(item.orderItemId)}
+                            aria-label={`Select ${item.name}`}
+                          />
+                        ) : (
+                          <div className="w-4 h-4" /> // Placeholder for alignment
+                        )}
+                      </div>
                       <Image src={item.image} alt={item.name} width={50} height={50} className="rounded-md object-cover aspect-square" data-ai-hint={item.hint} />
                       <div className="flex-1">
-                        <p className="font-semibold">{item.name}</p>
+                        <p className="font-semibold leading-tight">{item.name}</p>
+                        <p className="text-xs text-muted-foreground">{categoryMap[item.categoryId]}</p>
                         <p className="text-sm text-muted-foreground">${item.price.toFixed(2)}</p>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleUpdateQuantity(item.id, item.quantity - 1)}>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleUpdateQuantity(item.orderItemId, item.quantity - 1)} disabled={item.status === 'sent'}>
                           <MinusCircle className="h-4 w-4" />
                         </Button>
                         <span className="w-6 text-center">{item.quantity}</span>
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleUpdateQuantity(item.id, item.quantity + 1)}>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleUpdateQuantity(item.orderItemId, item.quantity + 1)} disabled={item.status === 'sent'}>
                           <PlusCircle className="h-4 w-4" />
                         </Button>
                       </div>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive/70 hover:text-destructive" onClick={() => handleUpdateQuantity(item.id, 0)}>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive/70 hover:text-destructive" onClick={() => handleUpdateQuantity(item.orderItemId, 0)} disabled={item.status === 'sent'}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </li>
@@ -189,11 +267,11 @@ export function OrderInterface({ tableId }: { tableId: string }) {
                 <span>${total.toFixed(2)}</span>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <Button size="lg" variant="outline" onClick={handleSendToKitchen} disabled={isSending}>
+                <Button size="lg" variant="outline" onClick={handleSendToKitchen} disabled={isSending || selectedItemIds.size === 0}>
                   {isSending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Printer className="mr-2 h-4 w-4" />}
                   To Kitchen
                 </Button>
-                <Button size="lg" className="bg-accent text-accent-foreground hover:bg-accent/90" onClick={() => setIsPaymentDialogOpen(true)}>
+                <Button size="lg" className="bg-accent text-accent-foreground hover:bg-accent/90" onClick={() => setIsPaymentDialogOpen(true)} disabled={newItems.length > 0}>
                   <CreditCard className="mr-2 h-4 w-4" />
                   Bill & Pay
                 </Button>

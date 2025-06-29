@@ -20,7 +20,9 @@ export interface MenuItem {
 }
 
 export interface OrderItem extends MenuItem {
+  orderItemId: string; // Unique identifier for this specific line item in the order
   quantity: number;
+  status: 'new' | 'sent';
 }
 
 export const tables: Table[] = [

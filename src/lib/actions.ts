@@ -2,7 +2,7 @@
 
 import fs from 'fs/promises';
 import path from 'path';
-import type { OrderItem } from '@/lib/data';
+import { menuCategories, type OrderItem } from '@/lib/data';
 
 const KOT_DIR = path.join(process.cwd(), 'kots');
 
@@ -17,6 +17,21 @@ export async function saveKotToFile(data: KotData) {
   if (orderItems.length === 0) {
     return { success: false, message: 'Order is empty.' };
   }
+  
+  const categoryMap = menuCategories.reduce((acc, category) => {
+    acc[category.id] = category.name;
+    return acc;
+  }, {} as Record<string, string>);
+
+  const itemsByCategory = orderItems.reduce((acc, item) => {
+    const categoryName = categoryMap[item.categoryId] || 'Uncategorized';
+    if (!acc[categoryName]) {
+      acc[categoryName] = [];
+    }
+    acc[categoryName].push(item);
+    return acc;
+  }, {} as Record<string, OrderItem[]>);
+
 
   const now = new Date();
   const timestamp = now.toISOString().replace(/[:.]/g, '-');
@@ -28,16 +43,18 @@ export async function saveKotToFile(data: KotData) {
   content += `================================\n\n`;
   content += `Table: ${tableId}\n`;
   content += `Date: ${now.toLocaleString()}\n\n`;
-  content += `--------------------------------\n`;
-  content += `Qty | Item\n`;
+  
   content += `--------------------------------\n`;
 
-  for (const item of orderItems) {
-    const qty = item.quantity.toString().padEnd(3);
-    content += ` ${qty} | ${item.name}\n`;
+  for (const categoryName in itemsByCategory) {
+    content += `\n-- ${categoryName.toUpperCase()} --\n`;
+    for (const item of itemsByCategory[categoryName]) {
+        const qty = item.quantity.toString().padEnd(3);
+        content += ` ${qty} | ${item.name}\n`;
+    }
   }
 
-  content += `--------------------------------\n`;
+  content += `\n--------------------------------\n`;
 
   try {
     // Ensure the directory exists
