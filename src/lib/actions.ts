@@ -3,6 +3,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { menuCategories, type OrderItem } from '@/lib/data';
+import { createSalesInvoice } from './erpnext';
 
 const KOT_DIR = path.join(process.cwd(), 'kots');
 
@@ -57,9 +58,7 @@ export async function saveKotToFile(data: KotData) {
   content += `\n--------------------------------\n`;
 
   try {
-    // Ensure the directory exists
     await fs.mkdir(KOT_DIR, { recursive: true });
-    // Write the file
     await fs.writeFile(filePath, content, 'utf-8');
 
     console.log(`KOT saved to ${filePath}`);
@@ -68,4 +67,14 @@ export async function saveKotToFile(data: KotData) {
     console.error('Failed to save KOT file:', error);
     return { success: false, message: 'Failed to save KOT file.' };
   }
+}
+
+export async function processPaymentAndCreateInvoice(orderDetails: {
+  orderItems: OrderItem[];
+  totalAmount: number;
+  paymentMethod: string;
+}) {
+  console.log('Processing payment and creating invoice...');
+  const result = await createSalesInvoice(orderDetails);
+  return result;
 }
