@@ -35,10 +35,11 @@ export async function createSalesInvoice(orderDetails: {
     return { success: true, message: 'Simulated successful sync to ERPNext.' };
   }
 
-  // NOTE: For a real integration, the `item.name` here should exactly match
-  // the `Item Code` in your ERPNext instance.
+  // Use `item_name` instead of `item_code`. This allows creating invoices
+  // for items that don't exist in the ERPNext Item master, treating them
+  // as non-stock items for accounting purposes.
   const itemsPayload = orderItems.map(item => ({
-    item_code: item.name,
+    item_name: item.name,
     qty: item.quantity,
     rate: item.price,
   }));
