@@ -20,6 +20,7 @@ export async function createSalesInvoice(orderDetails: {
   totalAmount: number;
   paymentMethod: string;
 }) {
+  console.log("--- [ERPNext] Starting createSalesInvoice ---");
   const { orderItems, totalAmount, paymentMethod } = orderDetails;
 
   const erpNextUrl = process.env.ERPNEXT_URL;
@@ -27,7 +28,7 @@ export async function createSalesInvoice(orderDetails: {
   const apiSecret = process.env.ERPNEXT_API_SECRET;
 
   if (!erpNextUrl || !apiKey || !apiSecret) {
-    const errorMessage = "ERPNext connection details not found in .env.local. Please check the file and restart the server.";
+    const errorMessage = "STOP: ERPNext connection details (URL, Key, or Secret) not found in .env.local. Please check the file and restart the server.";
     console.error(errorMessage);
     return { 
       success: false, 
@@ -35,9 +36,8 @@ export async function createSalesInvoice(orderDetails: {
     };
   }
 
-  // Use `item_name` instead of `item_code`. This allows creating invoices
-  // for items that don't exist in the ERPNext Item master, treating them
-  // as non-stock items for accounting purposes.
+  console.log(`[ERPNext] Found credentials. Connecting to: ${erpNextUrl}`);
+
   const itemsPayload = orderItems.map(item => ({
     item_name: item.name,
     qty: item.quantity,
@@ -45,14 +45,10 @@ export async function createSalesInvoice(orderDetails: {
   }));
 
   const invoicePayload = {
-    // Default to 'Walk-in Customer' for POS sales
-    // This customer must exist in ERPNext
     customer: 'Walk-in Customer',
     currency: 'USD',
-    // Add a default payment terms template. This is required for submitted invoices.
-    // 'In Advance' is a standard template in ERPNext.
     payment_terms_template: 'In Advance',
-    set_posting_time: 1, // Use current date and time
+    set_posting_time: 1,
     docstatus: 1, // 1 = Submitted document
     items: itemsPayload,
     payments: [
@@ -63,6 +59,9 @@ export async function createSalesInvoice(orderDetails: {
     ],
   };
 
+  console.log('[ERPNext] Sending this payload to ERPNext:');
+  console.log(JSON.stringify(invoicePayload, null, 2));
+
   try {
     const response = await fetch(`${erpNextUrl}/api/resource/Sales Invoice`, {
       method: 'POST',
@@ -71,22 +70,24 @@ export async function createSalesInvoice(orderDetails: {
         'Authorization': `token ${apiKey}:${apiSecret}`,
       },
       body: JSON.stringify(invoicePayload),
+      // Adding a timeout to prevent hanging requests
+      signal: AbortSignal.timeout(15000) // 15 seconds
     });
 
     const result = await response.json();
 
     if (!response.ok) {
-      console.error('ERPNext API Error:', result);
-      // The `result.exception` often contains the most useful error message from ERPNext
-      const detailedError = result?.exception || `API Error: ${response.statusText}`;
+      console.error('[ERPNext] API Error Response:', JSON.stringify(result, null, 2));
+      const detailedError = result?.exception || result?.message || `API Error: ${response.statusText}`;
       return { success: false, message: `Failed to create invoice in ERPNext. Reason: ${detailedError}` };
     }
 
-    console.log('Successfully created Sales Invoice:', result.data.name);
+    console.log('[ERPNext] SUCCESS: Created Sales Invoice:', result.data.name);
     return { success: true, message: `Successfully created Sales Invoice ${result.data.name}` };
   } catch (error) {
-    console.error('Failed to connect to ERPNext:', error);
-    return { success: false, message: 'Failed to connect to ERPNext API. Is the server running and the URL correct?' };
+    console.error('[ERPNext] CRITICAL: Failed to connect or fetch from ERPNext API.', error);
+    const errorMessage = error instanceof Error ? error.message : 'An unknown network error occurred.';
+    return { success: false, message: `Failed to connect to ERPNext API. Is the server running and the URL correct? Error: ${errorMessage}` };
   }
 }
 
@@ -102,7 +103,7 @@ export async function getSalesInvoices(): Promise<SalesInvoice[]> {
   const apiSecret = process.env.ERPNEXT_API_SECRET;
   
   if (!erpNextUrl || !apiKey || !apiSecret) {
-    console.log('Simulating ERPNext fetch as no credentials were provided.');
+    console.log('[ERPNext] No credentials found for getSalesInvoices. Returning empty array.');
     return [];
   }
   
@@ -116,6 +117,8 @@ export async function getSalesInvoices(): Promise<SalesInvoice[]> {
       headers: {
         'Authorization': `token ${apiKey}:${apiSecret}`,
       },
+      // Adding a timeout
+      signal: AbortSignal.timeout(15000) // 15 seconds
     });
 
     if (!response.ok) {
